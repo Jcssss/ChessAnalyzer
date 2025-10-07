@@ -11,8 +11,8 @@ function App() {
 
   useEffect(() => {
     const stockfishWorker = new Worker("/stockfish/stockfish.js")
-    stockfishWorker.onerror = (e) => console.log("Stockfish:", e.message);
-    stockfishWorker.onmessage = (e) => console.log("Stockfish:", e.data);
+    stockfishWorker.onerror = (e) => console.log("Stockfish error:", e.message);
+    stockfishWorker.onmessage = (e) => console.log("Stockfish data:", e.data);
     stockfishWorker.postMessage("uci");
 
     stockfishRef.current = stockfishWorker
@@ -29,7 +29,6 @@ function App() {
     const stockfish = stockfishRef.current
     console.log(stockfish)
     if (!stockfish) return;
-    console.log("Stockfish move")
 
     stockfish.postMessage("ucinewgame");
     stockfish.postMessage(`position fen ${fen}`);
