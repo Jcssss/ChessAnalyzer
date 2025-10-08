@@ -9,7 +9,11 @@ function App() {
   const [moveIndex, setMoveIndex] = useState(0)
   const [stockfishMove, setStockfishMove] = useState("")
   const [evaluation, setEvaluation] = useState("")
-  const [arrows, setArrows] = useState([])
+  const [arrows, setArrows]: [{
+    startSquare: string, 
+    endSquare: string, 
+    color: string
+  }[], Function] = useState([])
   const stockfishRef = useRef<any>(null);
 
   useEffect(() => {
@@ -31,11 +35,13 @@ function App() {
   }, [])
 
   useEffect(() => {
-    setArrows(() => [{
-        startSquare: "a5",
-        endSquare: "a4",
+    if (stockfishMove != "") {
+      setArrows(() => [{
+        startSquare: stockfishMove.substring(0, 2),
+        endSquare: stockfishMove.substring(2, 4),
         color: "blue"
       }])
+    }
   }, [stockfishMove])
 
   useEffect(() => {
@@ -49,7 +55,7 @@ function App() {
 
     stockfish.postMessage("ucinewgame");
     stockfish.postMessage(`position fen ${fen}`);
-    stockfish.postMessage("go movetime 1000"); // think for 1 second
+    stockfish.postMessage("go movetime 10000"); // think for 1 second
 
   };
 
@@ -110,7 +116,7 @@ function App() {
       <div onClick={() => fetchPlayersGames(playerId)}>Submit</div>
       <div onClick={() => convertPGNToFENSequence()}>Fetch Game</div>
       <Chessboard options={{
-        arrows: [arrows],
+        arrows: arrows,
         position: currentGame[moveIndex],
         boardStyle: {
           width: "400px"
