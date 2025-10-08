@@ -1,24 +1,42 @@
 import { useState, useEffect, useRef } from 'react'
 import { Chess } from 'chess.js'
-import { Chessboard, fenStringToPositionObject } from 'react-chessboard'
+import { Chessboard } from 'react-chessboard'
 
 function App() {
   const [playerId, setPlayerId] = useState("Jcssss")
   const [games, setGames]: [{'pgn': string}[], Function] = useState([{'pgn': ""}])
   const [currentGame, setCurrentGame]: [string[], Function] = useState([])
   const [moveIndex, setMoveIndex] = useState(0)
-   const stockfishRef = useRef<any>(null);
+  const [stockfishMove, setStockfishMove] = useState("")
+  const [evaluation, setEvaluation] = useState("")
+  const [arrows, setArrows] = useState([])
+  const stockfishRef = useRef<any>(null);
 
   useEffect(() => {
     const stockfishWorker = new Worker("/stockfish/stockfish.js")
     stockfishWorker.onerror = (e) => console.log("Stockfish error:", e.message);
-    stockfishWorker.onmessage = (e) => console.log("Stockfish data:", e.data);
+    stockfishWorker.onmessage = (e) => {
+      if (e.data.includes("bestmove")) {
+        const outputList = e.data.split(" ")
+        setStockfishMove(outputList[1])
+        console.log(`Stockfish move: ${outputList[1]}`)
+      } else if (e.data.includes("info")) {
+        console.log(`Stockfish move: ${e.data}`)
+      }
+    }
     stockfishWorker.postMessage("uci");
-
     stockfishRef.current = stockfishWorker
 
     return () => stockfishWorker.terminate?.();
   }, [])
+
+  useEffect(() => {
+    setArrows(() => [{
+        startSquare: "a5",
+        endSquare: "a4",
+        color: "blue"
+      }])
+  }, [stockfishMove])
 
   useEffect(() => {
     requestBestMove(currentGame[moveIndex])
@@ -27,8 +45,7 @@ function App() {
   // Ask Stockfish for the best move
   const requestBestMove = (fen: string) => {
     const stockfish = stockfishRef.current
-    console.log(stockfish)
-    if (!stockfish) return;
+    if (!stockfish || currentGame.length == 0) return;
 
     stockfish.postMessage("ucinewgame");
     stockfish.postMessage(`position fen ${fen}`);
@@ -93,17 +110,14 @@ function App() {
       <div onClick={() => fetchPlayersGames(playerId)}>Submit</div>
       <div onClick={() => convertPGNToFENSequence()}>Fetch Game</div>
       <Chessboard options={{
+        arrows: [arrows],
         position: currentGame[moveIndex],
         boardStyle: {
           width: "400px"
         }
       }}/>
-      <div onClick={() => {
-        setMoveIndex(curr => curr - 1)
-      }}>Left {moveIndex}</div>
-      <div onClick={() => {
-        setMoveIndex(curr => curr + 1)
-      }}>Right {moveIndex}</div>
+      <div onClick={() => updateMoveIndex(-1)}>Left {moveIndex}</div>
+      <div onClick={() => setMoveIndex(curr => curr + 1)}>Right {moveIndex}</div>
     </>
   )
 }
