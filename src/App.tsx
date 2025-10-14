@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { Chess } from 'chess.js'
 import { Chessboard } from 'react-chessboard'
+import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons'
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 function App() {
   const [playerId, setPlayerId] = useState("Jcssss")
@@ -8,7 +10,6 @@ function App() {
   const [currentGame, setCurrentGame]: [string[], Function] = useState([])
   const [moveIndex, setMoveIndex] = useState(0)
   const [stockfishMove, setStockfishMove] = useState("")
-  const [evaluation, setEvaluation] = useState("")
   const [arrows, setArrows]: [{
     startSquare: string, 
     endSquare: string, 
@@ -16,6 +17,7 @@ function App() {
   }[], Function] = useState([])
   const stockfishRef = useRef<any>(null);
 
+  // Initialize the stockfish engine and handle responses
   useEffect(() => {
     const stockfishWorker = new Worker("/stockfish/stockfish.js")
     stockfishWorker.onerror = (e) => console.log("Stockfish error:", e.message);
@@ -34,6 +36,7 @@ function App() {
     return () => stockfishWorker.terminate?.();
   }, [])
 
+  // When stockfish gives a new move, update the arrow
   useEffect(() => {
     if (stockfishMove != "") {
       setArrows(() => [{
@@ -44,6 +47,7 @@ function App() {
     }
   }, [stockfishMove])
 
+  // When we update the move being considered, ask stockfish to find the best move
   useEffect(() => {
     requestBestMove(currentGame[moveIndex])
   }, [moveIndex])
@@ -55,10 +59,11 @@ function App() {
 
     stockfish.postMessage("ucinewgame");
     stockfish.postMessage(`position fen ${fen}`);
-    stockfish.postMessage("go movetime 10000"); // think for 1 second
+    stockfish.postMessage("go movetime 1000"); // think for 1 second
 
   };
 
+  // Given a player name find there games from the past month
   const fetchPlayersGames = async (playerName: string) => {
     console.log(playerName)
     const url = `https://api.chess.com/pub/player/${playerName}/games/2025/10`;
@@ -75,9 +80,10 @@ function App() {
     }
   }
 
-  const convertPGNToFENSequence = (): void => {
+  // Convert a PGN game from chess.com to FEN sequence for chessboard and stockfish use
+  const convertPGNToFENSequence = (pgn: string): void => {
     let chess = new Chess()
-    chess.loadPgn(games[0].pgn)
+    chess.loadPgn(pgn)
     const moves = chess.history()
     console.log(moves)
     
@@ -92,12 +98,14 @@ function App() {
     setMoveIndex(fenMoveList.length - 1)
   }
 
+  // Update the move that we're looking at
   const updateMoveIndex = (update: number): void => {
     setMoveIndex(curr => {
       curr = curr + update
       if (curr < 0) {
         curr = 0
       } else if (curr > currentGame.length - 1) {
+        console.log("no")
         curr = currentGame.length - 1
       }
 
@@ -106,15 +114,38 @@ function App() {
   }
 
   return (
-    <>
-      <input
-        type="text"
-        onChange={(input) => setPlayerId(input.target.value)}
-        placeholder='Please type the player ID of the player you wish to view...'
-        value={playerId}
-      ></input>
-      <div onClick={() => fetchPlayersGames(playerId)}>Submit</div>
-      <div onClick={() => convertPGNToFENSequence()}>Fetch Game</div>
+    <div className="h-screen w-screen flex flex-row">
+      <div className="w-[40%] flex flex-col items-center p-5">
+        <div className="w-[80%] rounded-2xl border border-grey-100 p-3 flex flex-row items-center">
+          <input
+            className="w-[100%] focus:outline-none"
+            type="text"
+            onChange={(input) => setPlayerId(input.target.value)}
+            placeholder='Please type the player ID of the player you wish to view...'
+            value={playerId}
+          ></input>
+          <FontAwesomeIcon
+            icon={faMagnifyingGlass}
+            onClick={() => fetchPlayersGames(playerId)}
+          />
+        </div>
+        <div className="pt-5 flex flex-col items-center">
+          {games.map((game) => {
+            const dateOfPlay = game.pgn.match(/Date \"(.*)\"/)
+            const colourRegex = new RegExp(`\\[(.*) \\"${playerId}\\"`)
+            const colourMatch = game.pgn.match(colourRegex)
+            const colour = colourMatch && colourMatch[1]
+            const opponentColour = (colour == "Black")? "White" : "Black"
+            const opponentRegex = new RegExp(`\\[${opponentColour} \\"(.*)\\"`)
+            const opponent = game.pgn.match(opponentRegex)
+            return <div key={game.pgn} onClick={() => convertPGNToFENSequence(game.pgn)}>
+              {`Date of Play: ${(dateOfPlay)? dateOfPlay[1] : "Unknown"}\n`}
+              {`Colour: ${colour}\n`}
+              {`Opponent: ${(opponent)? opponent[1] : "Unknown"}`}
+            </div>
+          })}
+        </div>
+      </div>
       <Chessboard options={{
         arrows: arrows,
         position: currentGame[moveIndex],
@@ -123,8 +154,8 @@ function App() {
         }
       }}/>
       <div onClick={() => updateMoveIndex(-1)}>Left {moveIndex}</div>
-      <div onClick={() => setMoveIndex(curr => curr + 1)}>Right {moveIndex}</div>
-    </>
+      <div onClick={() => updateMoveIndex(1)}>Right {moveIndex}</div>
+    </div>
   )
 }
 
