@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
 import { Chess } from 'chess.js'
 import { Chessboard } from 'react-chessboard'
-import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons'
+import { faMagnifyingGlass, faArrowCircleRight, faArrowCircleLeft } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 function App() {
   const [playerId, setPlayerId] = useState("Jcssss")
+  const [displayedPlayerId, setDisplayedPlayerId] = useState("Jcssss")
   const [games, setGames]: [{'pgn': string}[], Function] = useState([{'pgn': ""}])
   const [currentGame, setCurrentGame]: [string[], Function] = useState([])
   const [moveIndex, setMoveIndex] = useState(0)
@@ -32,6 +33,8 @@ function App() {
     }
     stockfishWorker.postMessage("uci");
     stockfishRef.current = stockfishWorker
+
+    fetchPlayersGames("Jcssss")
 
     return () => stockfishWorker.terminate?.();
   }, [])
@@ -65,7 +68,7 @@ function App() {
 
   // Given a player name find there games from the past month
   const fetchPlayersGames = async (playerName: string) => {
-    console.log(playerName)
+    setDisplayedPlayerId(playerName)
     const url = `https://api.chess.com/pub/player/${playerName}/games/2025/10`;
     // For time control https://api.chess.com/pub/player/${playerId}/games/live/${timeSeconds}/${incrementSeconds}
     // For date https://api.chess.com/pub/player/${playerId}/games/${year}/${month}
@@ -121,6 +124,7 @@ function App() {
             className="w-[100%] focus:outline-none"
             type="text"
             onChange={(input) => setPlayerId(input.target.value)}
+            onKeyDown={(event) => {if (event.key == "Enter") fetchPlayersGames(playerId)}}
             placeholder='Please type the player ID of the player you wish to view...'
             value={playerId}
           ></input>
@@ -129,32 +133,43 @@ function App() {
             onClick={() => fetchPlayersGames(playerId)}
           />
         </div>
-        <div className="pt-5 flex flex-col items-center">
+        <div className="p-5 flex flex-col items-center overflow-y-auto m-5">
           {games.map((game) => {
             const dateOfPlay = game.pgn.match(/Date \"(.*)\"/)
-            const colourRegex = new RegExp(`\\[(.*) \\"${playerId}\\"`)
+            const colourRegex = new RegExp(`\\[(.*) \\"${displayedPlayerId}\\"`)
             const colourMatch = game.pgn.match(colourRegex)
             const colour = colourMatch && colourMatch[1]
             const opponentColour = (colour == "Black")? "White" : "Black"
             const opponentRegex = new RegExp(`\\[${opponentColour} \\"(.*)\\"`)
             const opponent = game.pgn.match(opponentRegex)
-            return <div key={game.pgn} onClick={() => convertPGNToFENSequence(game.pgn)}>
-              {`Date of Play: ${(dateOfPlay)? dateOfPlay[1] : "Unknown"}\n`}
-              {`Colour: ${colour}\n`}
-              {`Opponent: ${(opponent)? opponent[1] : "Unknown"}`}
+            return <div 
+              className="rounded-2xl border border-grey-100 m-2 flex flex-row w-[100%]" 
+              key={game.pgn} 
+              onClick={() => convertPGNToFENSequence(game.pgn)}
+            >
+              <div className={`bg-${colour?.toLowerCase()} w-10 border border-grey-100 rounded-l-2xl`}></div>
+              <div className="m-2">
+                <div>{`Date of Play: ${(dateOfPlay)? dateOfPlay[1] : "Unknown"}`}</div>
+                <div>{`Opponent: ${(opponent)? opponent[1] : "Unknown"}`}</div>
+              </div>
             </div>
           })}
         </div>
       </div>
-      <Chessboard options={{
-        arrows: arrows,
-        position: currentGame[moveIndex],
-        boardStyle: {
-          width: "400px"
-        }
-      }}/>
-      <div onClick={() => updateMoveIndex(-1)}>Left {moveIndex}</div>
-      <div onClick={() => updateMoveIndex(1)}>Right {moveIndex}</div>
+      <div className="h-full w-[100%] flex flex-col items-center justify-center">
+        <Chessboard options={{
+          arrows: arrows,
+          position: currentGame[moveIndex],
+          boardStyle: {
+            width: "50%",
+            height: "auto"
+          }
+        }}/>
+        <div className="m-5 w-[20%] flex flex-row items-center justify-between text-5xl">
+          <FontAwesomeIcon icon={faArrowCircleLeft} onClick={() => updateMoveIndex(-1)}/>
+          <FontAwesomeIcon icon={faArrowCircleRight} onClick={() => updateMoveIndex(1)}/>
+        </div>
+      </div>
     </div>
   )
 }
