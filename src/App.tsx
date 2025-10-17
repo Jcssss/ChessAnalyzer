@@ -139,6 +139,28 @@ function App() {
     return <></>
   }
 
+  const createEvalBar = (): ReactElement => {
+    if (currentGame) {
+      const colour = currentGame.colour
+      const opponentColour = (currentGame.colour == "black")? "white" : "black"
+      console.log(evaluation)
+      const barHeight = evaluation * 100 / 56.0
+      console.log(barHeight)
+      return <>
+        <div className="h-[100%] flex flex-col mr-5 border border-grey-100">
+          <div className={`w-10 h-[80%] bg-${opponentColour}`}></div>
+          <div className={`w-10 h-[20%] bg-${colour}`}></div>
+        </div>
+      </>
+    }
+    return <>
+      <div className="h-[100%] flex flex-col mr-5 border border-grey-100">
+        <div className={`w-10 h-[50%] bg-white`}></div>
+        <div className={`w-10 h-[50%] bg-black`}></div>
+      </div>
+    </>
+  }
+
   return (
     <div className="h-screen w-screen flex flex-row">
       <div className="w-[40%] flex flex-col items-center p-5">
@@ -175,7 +197,7 @@ function App() {
               key={game.pgn} 
               onClick={() => convertPGNToFENSequence(data)}
             >
-              <div className={`bg-${colour?.toLowerCase()} w-10 border border-grey-100 rounded-l-2xl`}></div>
+              <div className={`bg-${colour} w-10 border border-grey-100 rounded-l-2xl`}></div>
               <div className="m-2">
                 <div>{`Date of Play: ${(date)? date : "Unknown"}`}</div>
                 <div>{`Opponent: ${(opponent)? opponent : "Unknown"}`}</div>
@@ -186,7 +208,9 @@ function App() {
       </div>
       <div className="h-full w-[100%] flex flex-col items-center justify-center">
         {createGameHeading()}
-        <Chessboard options={{
+        <div className="flex flex-row">
+          {createEvalBar()}
+          <Chessboard options={{
           arrows: arrows,
           position: currentMoveSet[moveIndex],
           boardStyle: {
@@ -195,6 +219,7 @@ function App() {
           },
           boardOrientation: (currentGame)? currentGame.colour : 'white'
         }}/>
+        </div>
         <div className="m-5 w-[20%] flex flex-row items-center justify-between text-5xl">
           <FontAwesomeIcon className={`${(moveIndex == 0)? 'opacity-50': 'opacity-100 hover:opacity-75'}`} icon={faArrowCircleLeft} onClick={() => updateMoveIndex(-1)}/>
           <FontAwesomeIcon className={`${(moveIndex == currentMoveSet.length - 1)? 'opacity-50': 'opacity-100 hover:opacity-75'}`} icon={faArrowCircleRight} onClick={() => updateMoveIndex(1)}/>
