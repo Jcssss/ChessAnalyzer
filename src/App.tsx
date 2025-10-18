@@ -29,7 +29,7 @@ function App() {
 
   // Initialize the stockfish engine and handle responses
   useEffect(() => {
-    const stockfishWorker = new Worker("/stockfish/stockfish.js")
+    const stockfishWorker = new Worker("/ChessAnalyzer/stockfish/stockfish.js")
     stockfishWorker.onerror = (e) => console.log("Stockfish error:", e.message);
     stockfishWorker.onmessage = (e) => {
       if (e.data.includes("bestmove")) {
@@ -143,20 +143,18 @@ function App() {
     if (currentGame) {
       const colour = currentGame.colour
       const opponentColour = (currentGame.colour == "black")? "white" : "black"
-      console.log(evaluation)
-      const barHeight = evaluation * 100 / 56.0
-      console.log(barHeight)
+      const barHeight = Math.floor(50 + evaluation / 100)
       return <>
         <div className="h-[100%] flex flex-col mr-5 border border-grey-100">
-          <div className={`w-10 h-[80%] bg-${opponentColour}`}></div>
-          <div className={`w-10 h-[20%] bg-${colour}`}></div>
+          <div className={`w-10 flex-${100 - barHeight} bg-${opponentColour}`}></div>
+          <div className={`w-10 flex-${barHeight} bg-${colour}`}></div>
         </div>
       </>
     }
     return <>
       <div className="h-[100%] flex flex-col mr-5 border border-grey-100">
-        <div className={`w-10 h-[50%] bg-white`}></div>
-        <div className={`w-10 h-[50%] bg-black`}></div>
+        <div className={`w-10 flex-5 bg-white`}></div>
+        <div className={`w-10 flex-5 bg-black`}></div>
       </div>
     </>
   }
@@ -208,7 +206,7 @@ function App() {
       </div>
       <div className="h-full w-[100%] flex flex-col items-center justify-center">
         {createGameHeading()}
-        <div className="flex flex-row">
+        <div className="w-auto flex flex-row items-center ml-auto mr-auto">
           {createEvalBar()}
           <Chessboard options={{
           arrows: arrows,
