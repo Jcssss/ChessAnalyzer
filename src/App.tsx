@@ -3,13 +3,8 @@ import { Chess } from 'chess.js'
 import { Chessboard } from 'react-chessboard'
 import { faMagnifyingGlass, faArrowCircleRight, faArrowCircleLeft } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-
-type GameInfo = {
-  "opponent": string | undefined, 
-  "colour": "white" | "black" | undefined, 
-  "date": string | undefined,
-  "pgn": string
-}
+import type { GameInfo } from "./types"
+import GameSelector from './GameSelector';
 
 function App() {
   const [playerId, setPlayerId] = useState("Jcssss")
@@ -19,7 +14,8 @@ function App() {
   const [currentGame, setCurrentGame]: [GameInfo | undefined, Function] = useState<GameInfo | undefined>()
   const [moveIndex, setMoveIndex] = useState(0)
   const [stockfishMove, setStockfishMove] = useState("")
-  const [evaluation, setEvaluation] = useState(0)
+  const [evaluation, setEvaluation] = useState("")
+  const [width, setWidth] = useState(0);
   const [arrows, setArrows]: [{
     startSquare: string, 
     endSquare: string, 
@@ -32,13 +28,16 @@ function App() {
     const stockfishWorker = new Worker("/ChessAnalyzer/stockfish/stockfish.js")
     stockfishWorker.onerror = (e) => console.log("Stockfish error:", e.message);
     stockfishWorker.onmessage = (e) => {
+      console.log(`Stockfish says: ${e.data}`)
       if (e.data.includes("bestmove")) {
         const outputList = e.data.split(" ")
         setStockfishMove(outputList[1])
-        console.log(`Stockfish move: ${outputList[1]}`)
+      } else if (e.data.includes("info") && e.data.includes("mate")) {
+        const evaluation = e.data.match(/(mate \S*)(?:\s|$)/)
+        setEvaluation(evaluation[0])
       } else if (e.data.includes("info") && e.data.includes("cp")) {
-        const evaluation = e.data.match(/cp (\S*) /)
-        setEvaluation(parseInt(evaluation[1]))
+        const evaluation = e.data.match(/cp (\S*)[\s\b]/)
+        setEvaluation(evaluation[1])
       }
     }
     stockfishWorker.postMessage("uci");
@@ -48,6 +47,15 @@ function App() {
 
     return () => stockfishWorker.terminate?.();
   }, [])
+
+  useEffect(() => {
+    window.addEventListener("resize", detectWidth);
+    detectWidth();
+  });
+
+  const detectWidth = () => {
+    setWidth(window.innerWidth);
+  }
 
   // When stockfish gives a new move, update the arrow
   useEffect(() => {
@@ -86,7 +94,6 @@ function App() {
     try {
       const response = await fetch(url)
       const responseJson = await response.json()
-      console.log(responseJson.games)
       setGames(responseJson.games.reverse())
     } catch(err) {
       console.log(err)
@@ -98,7 +105,6 @@ function App() {
     let chess = new Chess()
     chess.loadPgn(game.pgn)
     const moves = chess.history()
-    console.log(moves)
     
     chess = new Chess()
     let fenMoveList: string[] = []
@@ -132,22 +138,35 @@ function App() {
       return <>
         <div className="text-2xl">{`Opponent: ${currentGame.opponent}`}</div>
         <div className="mb-5">{`Date: ${currentGame.date}`}</div>
-        <div>{`Evaluation: ${evaluation * (-1) ** moveIndex}`}</div>
       </>
     }
 
-    return <></>
+    return <><div className="mb-5">Select a game to begin analysis</div></>
   }
 
   const createEvalBar = (): ReactElement => {
     if (currentGame) {
       const colour = currentGame.colour
       const opponentColour = (currentGame.colour == "black")? "white" : "black"
-      const barHeight = Math.floor(50 + evaluation / 100)
+
+      // Set the evaluation bars height based on the current evaluation
+      let barHeight = 0
+      if (evaluation.includes("mate")) {
+        barHeight = (evaluation.includes("-") || evaluation.includes("0"))? -1 : 1
+        barHeight *= (colour == "black")? (-1) ** (moveIndex % 2 + 1) : (-1) ** (moveIndex % 2)
+      } else {
+        let unbiasedEval = parseInt(evaluation)
+        unbiasedEval *= (colour == "black")? (-1) ** (moveIndex % 2 + 1) : (-1) ** (moveIndex % 2)
+        barHeight = 0.5 + 0.5 * (2 / (1 + Math.exp(-0.003 * unbiasedEval)) - 1)
+        console.log(barHeight)
+      }
+      barHeight = Math.min(barHeight, 1)
+      barHeight = Math.max(barHeight, 0)
+
       return <>
         <div className="h-[100%] flex flex-col mr-5 border border-grey-100">
-          <div className={`w-10 flex-${100 - barHeight} bg-${opponentColour}`}></div>
-          <div className={`w-10 flex-${barHeight} bg-${colour}`}></div>
+          <div className={`w-10 bg-${opponentColour} transition-all ease-in-out`} style={{height: `${barHeight * 100}%`}}></div>
+          <div className={`w-10 bg-${colour} transition-all ease-in-out`} style={{height: `${100 - barHeight * 100}%`}}></div>
         </div>
       </>
     }
@@ -161,62 +180,27 @@ function App() {
 
   return (
     <div className="h-screen w-screen flex flex-row">
-      <div className="w-[40%] flex flex-col items-center p-5">
-        <div className="w-[80%] rounded-2xl border border-grey-100 p-3 flex flex-row items-center">
-          <FontAwesomeIcon
-            icon={faMagnifyingGlass}
-            onClick={() => fetchPlayersGames(playerId)}
-          />
-          <input
-            className="w-[100%] focus:outline-none ml-3"
-            type="text"
-            onChange={(input) => setPlayerId(input.target.value)}
-            onKeyDown={(event) => {if (event.key == "Enter") fetchPlayersGames(playerId)}}
-            placeholder='Enter a player to search...'
-            value={playerId}
-          ></input>
-        </div>
-        <div className="w-[80%] p-5 flex flex-col items-center overflow-y-auto overflow-x-hidden m-5">
-          {games.map((game) => {
-            const dateOfPlay = game.pgn.match(/Date \"(.*)\"/)
-            const date = (dateOfPlay)? dateOfPlay[1] : undefined
-            const colourRegex = new RegExp(`\\[(.*) \\"${displayedPlayerId}\\"`)
-            const colourMatch = game.pgn.match(colourRegex)
-            const colour = (colourMatch && colourMatch[1] == "Black")? "black" : "white"
-            const opponentColour = (colour == "black")? "White" : "Black"
-            const opponentRegex = new RegExp(`\\[${opponentColour} \\"(.*)\\"`)
-            const opponentMatch = game.pgn.match(opponentRegex)
-            const opponent = (opponentMatch)? opponentMatch[1] : undefined
-            const data: GameInfo = {
-              "opponent": opponent, "colour": colour, "date": date, "pgn": game.pgn
-            }
-            return <div 
-              className="rounded-2xl border border-grey-100 m-2 flex flex-row w-[100%] hover:border-blue-800 hover:cursor-pointer"
-              key={game.pgn} 
-              onClick={() => convertPGNToFENSequence(data)}
-            >
-              <div className={`bg-${colour} w-10 border border-grey-100 rounded-l-2xl`}></div>
-              <div className="m-2">
-                <div>{`Date of Play: ${(date)? date : "Unknown"}`}</div>
-                <div>{`Opponent: ${(opponent)? opponent : "Unknown"}`}</div>
-              </div>
-            </div>
-          })}
-        </div>
-      </div>
+      <GameSelector
+        playerId={playerId}
+        displayedPlayerId={displayedPlayerId}
+        games={games}
+        setPlayerId={setPlayerId}
+        fetchPlayersGames={fetchPlayersGames}
+        convertPGNToFENSequence={convertPGNToFENSequence}
+      />
       <div className="h-full w-[100%] flex flex-col items-center justify-center">
         {createGameHeading()}
-        <div className="w-auto flex flex-row items-center ml-auto mr-auto">
+        <div className="flex flex-row justify-center">
           {createEvalBar()}
-          <Chessboard options={{
-          arrows: arrows,
-          position: currentMoveSet[moveIndex],
-          boardStyle: {
-            width: "50%",
-            height: "auto"
-          },
-          boardOrientation: (currentGame)? currentGame.colour : 'white'
-        }}/>
+            <Chessboard options={{
+            arrows: arrows,
+            position: currentMoveSet[moveIndex],
+            boardStyle: {
+              width: "50%",
+              height: "auto",
+            },
+            boardOrientation: (currentGame)? currentGame.colour : 'white'
+          }}/>
         </div>
         <div className="m-5 w-[20%] flex flex-row items-center justify-between text-5xl">
           <FontAwesomeIcon className={`${(moveIndex == 0)? 'opacity-50': 'opacity-100 hover:opacity-75'}`} icon={faArrowCircleLeft} onClick={() => updateMoveIndex(-1)}/>
