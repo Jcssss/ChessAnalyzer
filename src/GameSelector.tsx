@@ -49,8 +49,8 @@ function GameSelector({
                             key={game.pgn} 
                             onClick={() => convertPGNToFENSequence(data)}
                         >
-                        <div className={`bg-${colour} w-10 border border-grey-100 rounded-l-2xl`}></div>
-                        <div className="m-2">
+                        <div className={`w-10 border border-grey-100 rounded-l-2xl`} style={{backgroundColor: colour}}></div>
+                        <div className="m-2 text-sm">
                             <div>{`Date of Play: ${(date)? date : "Unknown"}`}</div>
                             <div>{`Opponent: ${(opponent)? opponent : "Unknown"}`}</div>
                         </div>
