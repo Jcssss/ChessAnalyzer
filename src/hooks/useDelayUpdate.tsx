@@ -1,6 +1,5 @@
 import { useState } from "react";
 
-
 /**
  * A custom hook that sets a timeout each time the input value changes.
  * When the timeout expires, it updates the returned value.
