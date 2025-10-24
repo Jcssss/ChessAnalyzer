@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, type ReactElement } from 'react'
 import { useDelayUpdate } from "./hooks/useDelayUpdate"
-import { Chess, type Piece, type Square } from 'chess.js'
-import { Chessboard, type PieceDataType, type PieceDropHandlerArgs, type PieceHandlerArgs, type SquareHandlerArgs } from 'react-chessboard'
+import { Chess, type Square } from 'chess.js'
+import { Chessboard, type PieceDropHandlerArgs, type PieceHandlerArgs, type PieceDataType, type SquareHandlerArgs} from 'react-chessboard'
 import { faArrowCircleRight, faArrowCircleLeft, faEraser, faDeleteLeft} from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { GameInfo } from "./types"
@@ -237,6 +237,7 @@ function App() {
     })
   }
 
+  // Create the heading above each game
   const createGameHeading = (): ReactElement => {
     if (currentGame) {
       return <>
@@ -244,10 +245,10 @@ function App() {
         <div className="mb-5">{`Date: ${currentGame.date}`}</div>
       </>
     }
-
     return <><div className="mb-5">Select a game to begin analysis</div></>
   }
 
+  // Determine the height of the evaluation bar
   const determineBarHeight = (evaluation: string): void => {
     let barHeight = 0
     if (currentGame) {
@@ -267,37 +268,68 @@ function App() {
     } else {
       barHeight = 0.5
     }
-
     setBarHeight(barHeight)
   }
 
-  // const attemptMove = (square: string | null, piece: PieceDataType | null, lastSquareClicked: string | null): void => {
-  //   console.log(square)
-  //   if (lastSquareClicked == "" && piece) {
-  //     let moves = determinePossibleMoves(lastSquareClicked)
-  //     if (moves.length > 0) {
-  //       setLastSquareClicked(square)
-  //       setPossibleMoves(moves)
-  //     }
-  //   } else if (lastSquareClicked != ""){
-  //     makeMove({sourceSquare: lastSquareClicked, targetSquare: square} as PieceDropHandlerArgs)
-  //   }
-  // }
+  // When a square is clicked, attempt to make a move
+  const attemptMove = (square: string | null, piece: PieceDataType | null, lastSquareClicked: string | null): void => {
+    
+    // If there's a piece on the clicked square, and no square was previously selected
+    if (lastSquareClicked == "" && piece) {
 
+      // Check if the clicked piece has any valid moves
+      let moves = determinePossibleMoves(square)
+
+      // If there are valid moves, set this piece as selected
+      if (moves.length > 0) {
+        setLastSquareClicked(square)
+        setPossibleMoves(moves)
+      }
+
+    // If a previous square was selected
+    } else if (lastSquareClicked != ""){
+
+      // Attempt to move the piece to the clicked square
+      const madeMove = makeMove({sourceSquare: lastSquareClicked, targetSquare: square} as PieceDropHandlerArgs)
+
+      // If the move was made, reset selected piece
+      if (madeMove) {
+        setLastSquareClicked("")
+      } else {
+
+        // Otherwise, if the piece has any valid moves
+        let moves = determinePossibleMoves(square)
+
+        // Update the selected piece
+        if (moves.length > 0) {
+          setLastSquareClicked(square)
+          setPossibleMoves(moves)
+        }
+      }
+    }
+  }
+
+  // Given a list of squares, create a style object for each square
   const getSquareStyles = (squares: Square[]): Record<string, Record<string, string>> => {
     let styles: Record<string, Record<string, string>> = {}
+
+    // For each square, assign it a style
     for (let square of squares) {
       styles[square] = {
-        backgroundColor: 'rgba(255,0,0,0.2)'
+        backgroundColor: 'rgba(36, 234, 59, 0.2)'
       }
     }
     return styles
   }
 
+  // Create the evaluation bar
   const createEvalBar = (): ReactElement => {
+
+    // Determine which colour should be bottom colour
     const colour = (currentGame)? currentGame.colour : "white"
     const opponentColour = (colour == "black")? "white" : "black"
 
+    // Create the bar
     return <>
       <div className="h-[100%] flex flex-col mr-5 border border-grey-100">
         <div className={`w-10 transition-all ease-in-out`} style={{height: `${barHeight * 100}%`, backgroundColor: opponentColour}}></div>
@@ -315,6 +347,7 @@ function App() {
         setPlayerId={setPlayerId}
         fetchPlayersGames={fetchPlayersGames}
         convertPGNToFENSequence={convertPGNToFENSequence}
+        width={width}
       />
       <div className="h-full w-[100%] flex flex-col items-center justify-center">
         {createGameHeading()}
@@ -325,29 +358,36 @@ function App() {
               position: currentMoveSet[moveIndex],
               squareStyles: getSquareStyles(possibleMoves),
               boardStyle: {
-                width: "50%",
+                width: (width > 900)? "50%" : "70%",
                 height: "auto",
               },
               boardOrientation: (currentGame)? currentGame.colour : 'white',
-              // onSquareClick: ({square, piece}: SquareHandlerArgs) => attemptMove(square, piece, lastSquareClicked),
+              onSquareClick: ({square, piece}: SquareHandlerArgs) => attemptMove(square, piece, lastSquareClicked),
               onPieceDrop: makeMove,
-              // onPieceClick: ({square, piece}: PieceHandlerArgs) => attemptMove(square, piece, lastSquareClicked),
-              onPieceDrag: ({square}: PieceHandlerArgs) => setPossibleMoves(determinePossibleMoves(square))
+              onPieceClick: ({square, piece}: PieceHandlerArgs) => attemptMove(square, piece, lastSquareClicked),
+              onPieceDrag: ({square}: PieceHandlerArgs) => setPossibleMoves(determinePossibleMoves(square)),
+              showNotation: (width > 900)
             }}/>
           </div>
-        <div className="m-5 w-[55%] flex flex-row items-center justify-end text-5xl space-x-5">
-          <FontAwesomeIcon className={`${(moveIndex == 0 || currentMoveSet.length == 0)? 'opacity-50': 'opacity-100 hover:opacity-75'}`} icon={faArrowCircleLeft} onClick={() => updateMoveIndex(-1)}/>
-          <FontAwesomeIcon 
-            className={`${(currentMoveSet.length == 1)? 'opacity-50': 'opacity-100 hover:opacity-75'}`} 
-            icon={faEraser}
-            onClick={() => resetToStartPosition()}
-          />
-          <FontAwesomeIcon 
-            className={`${(originalMoveSet.length == 0)? 'opacity-50': 'opacity-100 hover:opacity-75'}`} 
-            icon={faDeleteLeft}
-            onClick={() => resetToLastPosition(originalMoveSet, originalMoveIndex)}
-          />
-          <FontAwesomeIcon className={`${(moveIndex == currentMoveSet.length - 1 || currentMoveSet.length == 0)? 'opacity-50': 'opacity-100 hover:opacity-75'}`} icon={faArrowCircleRight} onClick={() => updateMoveIndex(1)}/>
+        <div className={`m-5 ${(width > 900)? "w-[55%] text-5xl space-x-5" : "w-[80%] text-3xl space-x-5"} flex flex-row items-center justify-end`}>
+          <button className={`${(moveIndex == 0 || currentMoveSet.length == 0)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
+            <FontAwesomeIcon icon={faArrowCircleLeft} onClick={() => updateMoveIndex(-1)}/>
+          </button>
+          <button className={`${(currentMoveSet.length == 1)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
+            <FontAwesomeIcon 
+              icon={faEraser}
+              onClick={() => resetToStartPosition()}
+            />
+          </button>
+          <button className={`${(originalMoveSet.length == 0)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
+            <FontAwesomeIcon 
+              icon={faDeleteLeft}
+              onClick={() => resetToLastPosition(originalMoveSet, originalMoveIndex)}
+            />
+          </button>
+          <button className={`${(moveIndex == currentMoveSet.length - 1 || currentMoveSet.length == 0)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
+            <FontAwesomeIcon icon={faArrowCircleRight} onClick={() => updateMoveIndex(1)}/>
+          </button>
         </div>
       </div>
     </div>
