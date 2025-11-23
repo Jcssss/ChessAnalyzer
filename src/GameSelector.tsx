@@ -21,7 +21,7 @@ function GameSelector({
     const getGameSelector = () => {
         return (
             <>
-                <div className="w-[100%] rounded-2xl border border-grey-100 p-3 flex flex-row items-center bg-white text-black">
+                <div className="w-[100%] rounded-2xl border border-grey-100 border-2 p-3 flex flex-row items-center bg-white text-black">
                     <FontAwesomeIcon
                         icon={faMagnifyingGlass}
                         onClick={() => fetchPlayersGames(playerId)}
@@ -35,7 +35,7 @@ function GameSelector({
                         value={playerId}
                     ></input>
                 </div>
-                <div className="w-[80%] p-5 flex flex-col items-center overflow-y-auto overflow-x-hidden m-5">
+                <div className="w-[100%] p-5 flex flex-col items-center overflow-y-auto overflow-x-hidden m-5">
                     {games.map((game) => {
                         const dateOfPlay = game.pgn.match(/Date \"(.*)\"/)
                         const date = (dateOfPlay)? dateOfPlay[1] : undefined
@@ -50,19 +50,19 @@ function GameSelector({
                             "opponent": opponent, "colour": colour, "date": date, "pgn": game.pgn
                         }
                         return <div 
-                                className="bg-white text-black rounded-3xl border border-grey-300 m-2 flex flex-row w-[100%] active:bg-blue-100 hover:bg-blue-100 hover:cursor-pointer"
+                                className="bg-white text-black rounded-3xl m-2 flex flex-row w-[100%] active:bg-blue-100 hover:bg-blue-100 hover:cursor-pointer"
                                 key={game.pgn} 
                                 onClick={() => {
                                     setMenuOpen(false)
                                     convertPGNToFENSequence(data)
                                 }}
                             >
-                            <div className={`w-10 border border-grey-100 rounded-l-2xl`} style={{backgroundColor: colour}}></div>
-                            <div className="m-2 text-sm">
-                                <div>{`Date of Play: ${(date)? date : "Unknown"}`}</div>
-                                <div>{`Opponent: ${(opponent)? opponent : "Unknown"}`}</div>
+                                <div className={`w-10 border border-grey-300 border-2 rounded-l-3xl`} style={{backgroundColor: colour}}></div>
+                                <div className="p-2 pl-4 w-[100%] h-[100%] text-sm border border-grey-300 border-2 border-l-0 rounded-r-3xl">
+                                    <div>{`Date of Play: ${(date)? date : "Unknown"}`}</div>
+                                    <div>{`Opponent: ${(opponent)? opponent : "Unknown"}`}</div>
+                                </div>
                             </div>
-                        </div>
                     })}
                 </div>
             </>
@@ -74,7 +74,7 @@ function GameSelector({
             {getGameSelector()}
         </div>
     } else {
-        return <div className={`w-[100%] flex flex-col justify-center items-center fixed z-200 top-0 left-0 ${(menuOpen)? "backdrop-blur-sm h-full" : ""}`}>
+        return <div className={`w-[100%] flex flex-col justify-center items-center fixed z-200 top-0 left-0 ${(menuOpen)? "bg-white h-full" : ""}`}>
             <div className="w-[100%] ">
                 <FontAwesomeIcon
                     icon={(menuOpen)? faXmark : faMagnifyingGlass}

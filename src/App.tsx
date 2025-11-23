@@ -13,7 +13,14 @@ function App() {
   const [displayedPlayerId, setDisplayedPlayerId] = useState("Jcssss")
 
   // Variables for displaying the current game
-  const [games, setGames]= useState<{"pgn": string}[]>([])
+  const [games, setGames]= useState<{"pgn": string}[]>([
+    {"pgn": "test1"},
+    {"pgn": "test2"},
+    {"pgn": "test3"},
+    {"pgn": "test4"},
+    {"pgn": "test5"},
+    {"pgn": "test6"}
+  ])
   const [currentMoveSet, setCurrentMoveSet] = useState<string[]>([basePosition])
   const [originalMoveSet, setOriginalMoveSet] = useState<string[]>([])
   const [currentGame, setCurrentGame] = useState<GameInfo | undefined>()
@@ -38,38 +45,38 @@ function App() {
   // Variable to store width of the screen
   const [width, setWidth] = useState(0);
 
-  // Initialize the stockfish engine and handle responses
-  useEffect(() => {
-    const stockfishWorker = new Worker("/ChessAnalyzer/stockfish/stockfish.js")
-    stockfishWorker.onerror = (e) => console.log("Stockfish error:", e.message);
+  // // Initialize the stockfish engine and handle responses
+  // useEffect(() => {
+  //   const stockfishWorker = new Worker("/ChessAnalyzer/stockfish/stockfish.js")
+  //   stockfishWorker.onerror = (e) => console.log("Stockfish error:", e.message);
 
-    // Handle stockfish responses
-    stockfishWorker.onmessage = (e) => {
-      console.log(`Stockfish says: ${e.data}`)
+  //   // Handle stockfish responses
+  //   stockfishWorker.onmessage = (e) => {
+  //     console.log(`Stockfish says: ${e.data}`)
 
-      // Best move suggestion
-      if (e.data.includes("bestmove")) {
-        const outputList = e.data.split(" ")
-        setStockfishMove(outputList[1])
+  //     // Best move suggestion
+  //     if (e.data.includes("bestmove")) {
+  //       const outputList = e.data.split(" ")
+  //       setStockfishMove(outputList[1])
 
-      // Mate in x suggestions
-      } else if (e.data.includes("info") && e.data.includes("mate")) {
-        const evaluation = e.data.match(/(mate \S*)(?:\s|$)/)
-        setEvaluation(evaluation[0])
+  //     // Mate in x suggestions
+  //     } else if (e.data.includes("info") && e.data.includes("mate")) {
+  //       const evaluation = e.data.match(/(mate \S*)(?:\s|$)/)
+  //       setEvaluation(evaluation[0])
 
-      // Centipawn rating suggestions
-      } else if (e.data.includes("info") && e.data.includes("cp")) {
-        const evaluation = e.data.match(/cp (\S*)[\s\b]/)
-        setEvaluation(evaluation[1])
-      }
-    }
-    stockfishWorker.postMessage("uci");
-    stockfishRef.current = stockfishWorker
+  //     // Centipawn rating suggestions
+  //     } else if (e.data.includes("info") && e.data.includes("cp")) {
+  //       const evaluation = e.data.match(/cp (\S*)[\s\b]/)
+  //       setEvaluation(evaluation[1])
+  //     }
+  //   }
+  //   stockfishWorker.postMessage("uci");
+  //   stockfishRef.current = stockfishWorker
 
-    fetchPlayersGames("Jcssss")
+  //   fetchPlayersGames("Jcssss")
 
-    return () => stockfishWorker.terminate?.();
-  }, [])
+  //   return () => stockfishWorker.terminate?.();
+  // }, [])
 
   useEffect(() => {
     determineBarHeight(evaluation)
@@ -349,9 +356,9 @@ function App() {
         convertPGNToFENSequence={convertPGNToFENSequence}
         width={width}
       />
-      <div className="h-full w-[100%] flex flex-col items-center justify-center">
+      <div className={`h-full w-[100%] flex flex-col items-center justify-center ${(width > 500 && width < 900)? "mt-[10%]" : ""}`}>
         {createGameHeading()}
-        <div className="flex flex-row justify-center">
+        <div className={`flex flex-row justify-center`}>
           {createEvalBar()}
             <Chessboard options={{
               arrows: arrows,
@@ -366,6 +373,8 @@ function App() {
               onPieceDrop: makeMove,
               onPieceClick: ({square, piece}: PieceHandlerArgs) => attemptMove(square, piece, lastSquareClicked),
               onPieceDrag: ({square}: PieceHandlerArgs) => setPossibleMoves(determinePossibleMoves(square)),
+              lightSquareStyle: {backgroundColor: 'rgba(255, 255, 255, 1)'},
+              darkSquareStyle: {backgroundColor: 'rgba(206, 168, 85, 1)'},
               showNotation: (width > 900)
             }}/>
           </div>
