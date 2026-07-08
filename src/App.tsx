@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, type ReactElement } from 'react'
 import { useDelayUpdate } from "./hooks/useDelayUpdate"
 import { Chess, type Square } from 'chess.js'
 import { Chessboard, type PieceDropHandlerArgs, type PieceHandlerArgs, type PieceDataType, type SquareHandlerArgs} from 'react-chessboard'
-import { faArrowCircleRight, faArrowCircleLeft, faEraser, faDeleteLeft} from '@fortawesome/free-solid-svg-icons'
+import { faArrowCircleRight, faArrowCircleLeft, faEraser, faDeleteLeft, faChessKing, faMagnifyingGlass} from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { GameInfo } from "./types"
 import GameSelector from './GameSelector';
@@ -13,14 +13,7 @@ function App() {
   const [displayedPlayerId, setDisplayedPlayerId] = useState("Jcssss")
 
   // Variables for displaying the current game
-  const [games, setGames]= useState<{"pgn": string}[]>([
-    {"pgn": "test1"},
-    {"pgn": "test2"},
-    {"pgn": "test3"},
-    {"pgn": "test4"},
-    {"pgn": "test5"},
-    {"pgn": "test6"}
-  ])
+  const [games, setGames]= useState<GameInfo[]>([])
   const [currentMoveSet, setCurrentMoveSet] = useState<string[]>([basePosition])
   const [originalMoveSet, setOriginalMoveSet] = useState<string[]>([])
   const [currentGame, setCurrentGame] = useState<GameInfo | undefined>()
@@ -45,38 +38,38 @@ function App() {
   // Variable to store width of the screen
   const [width, setWidth] = useState(0);
 
-  // // Initialize the stockfish engine and handle responses
-  // useEffect(() => {
-  //   const stockfishWorker = new Worker("/ChessAnalyzer/stockfish/stockfish.js")
-  //   stockfishWorker.onerror = (e) => console.log("Stockfish error:", e.message);
+  // Initialize the stockfish engine and handle responses
+  useEffect(() => {
+    const stockfishWorker = new Worker("/ChessAnalyzer/stockfish/stockfish.js")
+    stockfishWorker.onerror = (e) => console.log("Stockfish error:", e.message);
 
-  //   // Handle stockfish responses
-  //   stockfishWorker.onmessage = (e) => {
-  //     console.log(`Stockfish says: ${e.data}`)
+    // Handle stockfish responses
+    stockfishWorker.onmessage = (e) => {
+      console.log(`Stockfish says: ${e.data}`)
 
-  //     // Best move suggestion
-  //     if (e.data.includes("bestmove")) {
-  //       const outputList = e.data.split(" ")
-  //       setStockfishMove(outputList[1])
+      // Best move suggestion
+      if (e.data.includes("bestmove")) {
+        const outputList = e.data.split(" ")
+        setStockfishMove(outputList[1])
 
-  //     // Mate in x suggestions
-  //     } else if (e.data.includes("info") && e.data.includes("mate")) {
-  //       const evaluation = e.data.match(/(mate \S*)(?:\s|$)/)
-  //       setEvaluation(evaluation[0])
+      // Mate in x suggestions
+      } else if (e.data.includes("info") && e.data.includes("mate")) {
+        const evaluation = e.data.match(/(mate \S*)(?:\s|$)/)
+        setEvaluation(evaluation[0])
 
-  //     // Centipawn rating suggestions
-  //     } else if (e.data.includes("info") && e.data.includes("cp")) {
-  //       const evaluation = e.data.match(/cp (\S*)[\s\b]/)
-  //       setEvaluation(evaluation[1])
-  //     }
-  //   }
-  //   stockfishWorker.postMessage("uci");
-  //   stockfishRef.current = stockfishWorker
+      // Centipawn rating suggestions
+      } else if (e.data.includes("info") && e.data.includes("cp")) {
+        const evaluation = e.data.match(/cp (\S*)[\s\b]/)
+        setEvaluation(evaluation[1])
+      }
+    }
+    stockfishWorker.postMessage("uci");
+    stockfishRef.current = stockfishWorker
 
-  //   fetchPlayersGames("Jcssss")
+    fetchPlayersGames("Jcssss")
 
-  //   return () => stockfishWorker.terminate?.();
-  // }, [])
+    return () => stockfishWorker.terminate?.();
+  }, [])
 
   useEffect(() => {
     determineBarHeight(evaluation)
@@ -152,6 +145,19 @@ function App() {
 
     // Update state objects with the move list
     setCurrentMoveSet(fenMoveList)
+    
+    // Split the FEN string by spaces to isolate the fields
+    const fenString = game.fen
+    const fields = fenString.trim().split(/\s+/);
+    
+    // The active color is always the second field (index 1)
+    const colorChar = fields[1];
+    if (colorChar === 'w') {
+      game.colour = "white"
+    } else if (colorChar === 'b') {
+      game.colour = "black"
+    }
+
     setCurrentGame(game)
     setMoveIndex(fenMoveList.length - 1)
 
@@ -247,12 +253,14 @@ function App() {
   // Create the heading above each game
   const createGameHeading = (): ReactElement => {
     if (currentGame) {
-      return <>
+      return <div className={`flex flex-col items-center m-2 ${(width < 900)? "w-[100%] mt-20 m-2" : "w-125 m-2"}`}>
         <div className="text-2xl">{`Opponent: ${currentGame.opponent}`}</div>
         <div className="mb-5">{`Date: ${currentGame.date}`}</div>
-      </>
+      </div>
     }
-    return <><div className="mb-5">Select a game to begin analysis</div></>
+    return <div className={`flex flex-col items-center m-2 ${(width < 900)? "w-[100%]" : "w-125"}`}>
+      <div className="mb-5">Select a game to begin analysis</div>
+    </div>
   }
 
   // Determine the height of the evaluation bar
@@ -338,7 +346,7 @@ function App() {
 
     // Create the bar
     return <>
-      <div className="h-[100%] flex flex-col mr-5 border border-grey-100">
+      <div className="h-[99%] flex flex-col mr-5 border border-grey-100">
         <div className={`w-10 transition-all ease-in-out`} style={{height: `${barHeight * 100}%`, backgroundColor: opponentColour}}></div>
         <div className={`w-10 transition-all ease-in-out`} style={{height: `${100 - barHeight * 100}%`, backgroundColor: colour}}></div>
       </div>
@@ -346,7 +354,7 @@ function App() {
   }
 
   return (
-    <div className="h-screen w-screen flex flex-row">
+    <div className={`h-screen w-screen flex flex-row items-center justify-center text-white`}>
       <GameSelector
         playerId={playerId}
         displayedPlayerId={displayedPlayerId}
@@ -354,51 +362,71 @@ function App() {
         setPlayerId={setPlayerId}
         fetchPlayersGames={fetchPlayersGames}
         convertPGNToFENSequence={convertPGNToFENSequence}
-        width={width}
       />
-      <div className={`h-full w-[100%] flex flex-col items-center justify-center ${(width > 500 && width < 900)? "mt-[10%]" : ""}`}>
-        {createGameHeading()}
-        <div className={`flex flex-row justify-center`}>
-          {createEvalBar()}
-            <Chessboard options={{
-              arrows: arrows,
-              position: currentMoveSet[moveIndex],
-              squareStyles: getSquareStyles(possibleMoves),
-              boardStyle: {
-                width: (width > 900)? "50%" : "70%",
-                height: "auto",
-              },
-              boardOrientation: (currentGame)? currentGame.colour : 'white',
-              onSquareClick: ({square, piece}: SquareHandlerArgs) => attemptMove(square, piece, lastSquareClicked),
-              onPieceDrop: makeMove,
-              onPieceClick: ({square, piece}: PieceHandlerArgs) => attemptMove(square, piece, lastSquareClicked),
-              onPieceDrag: ({square}: PieceHandlerArgs) => setPossibleMoves(determinePossibleMoves(square)),
-              lightSquareStyle: {backgroundColor: 'rgba(255, 255, 255, 1)'},
-              darkSquareStyle: {backgroundColor: 'rgba(206, 168, 85, 1)'},
-              showNotation: (width > 900)
-            }}/>
+
+      {/* Main Analysis Area */}
+      <main className="flex-1 flex flex-col min-w-0 bg-neutral-900 h-screen">
+        {/* Header */}
+        <header className="p-4 flex items-center gap-4 border-b border-neutral-700">
+          <h1 className="text-xl font-bold">ChessAnalyzer.io</h1>
+        </header>
+
+        {/* Board and Engine Container */}
+        <div className="flex-1 p-6 flex gap-6 overflow-hidden">
+          {/* Central Board */}
+          <div className="flex-1 bg-neutral-800 p-4 rounded-xl border border-neutral-700 flex items-center justify-center">
+            {createEvalBar()}
+            <div className="flex flex-col h-[100%] aspect-square">
+              <Chessboard options={{
+                arrows: arrows,
+                position: currentMoveSet[moveIndex],
+                squareStyles: getSquareStyles(possibleMoves),
+                boardStyle: {
+                  width: "auto",
+                  height: "100%",
+                },
+                boardOrientation: (currentGame)? currentGame.colour : 'white',
+                onSquareClick: ({square, piece}: SquareHandlerArgs) => attemptMove(square, piece, lastSquareClicked),
+                onPieceDrop: makeMove,
+                onPieceClick: ({square, piece}: PieceHandlerArgs) => attemptMove(square, piece, lastSquareClicked),
+                onPieceDrag: ({square}: PieceHandlerArgs) => setPossibleMoves(determinePossibleMoves(square)),
+                lightSquareStyle: {backgroundColor: 'rgba(255, 255, 255, 1)'},
+                darkSquareStyle: {backgroundColor: 'rgba(206, 168, 85, 1)'},
+                showNotation: (width > 900)
+              }} />
+            </div>
+            
+            <div className={`m-5 w-10 text-5xl space-y-3 flex flex-col items-center justify-end`}>
+              <button className={`${(moveIndex == 0 || currentMoveSet.length == 0)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
+                <FontAwesomeIcon icon={faArrowCircleLeft} onClick={() => updateMoveIndex(-1)}/>
+              </button>
+              <button className={`${(currentMoveSet.length == 1)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
+                <FontAwesomeIcon 
+                  icon={faEraser}
+                  onClick={() => resetToStartPosition()}
+                />
+              </button>
+              <button className={`${(originalMoveSet.length == 0)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
+                <FontAwesomeIcon 
+                  icon={faDeleteLeft}
+                  onClick={() => resetToLastPosition(originalMoveSet, originalMoveIndex)}
+                />
+              </button>
+              <button className={`${(moveIndex == currentMoveSet.length - 1 || currentMoveSet.length == 0)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
+                <FontAwesomeIcon icon={faArrowCircleRight} onClick={() => updateMoveIndex(1)}/>
+              </button>
+            </div>
           </div>
-        <div className={`m-5 ${(width > 900)? "w-[55%] text-5xl space-x-5" : "w-[80%] text-3xl space-x-5"} flex flex-row items-center justify-end`}>
-          <button className={`${(moveIndex == 0 || currentMoveSet.length == 0)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
-            <FontAwesomeIcon icon={faArrowCircleLeft} onClick={() => updateMoveIndex(-1)}/>
-          </button>
-          <button className={`${(currentMoveSet.length == 1)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
-            <FontAwesomeIcon 
-              icon={faEraser}
-              onClick={() => resetToStartPosition()}
-            />
-          </button>
-          <button className={`${(originalMoveSet.length == 0)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
-            <FontAwesomeIcon 
-              icon={faDeleteLeft}
-              onClick={() => resetToLastPosition(originalMoveSet, originalMoveIndex)}
-            />
-          </button>
-          <button className={`${(moveIndex == currentMoveSet.length - 1 || currentMoveSet.length == 0)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
-            <FontAwesomeIcon icon={faArrowCircleRight} onClick={() => updateMoveIndex(1)}/>
-          </button>
+
+          {/* Right Panel: Engine & Move History */}
+          <section className="w-[300px] flex flex-col gap-4">
+            <div className="bg-neutral-800 p-4 rounded-xl border border-neutral-700 flex-1">
+                <h2 className="font-semibold mb-2">Engine & Move History</h2>
+                {/* Engine output and move list logic here */}
+            </div>
+          </section>
         </div>
-      </div>
+      </main>
     </div>
   )
 }

@@ -1,92 +1,107 @@
 import { useState } from 'react'
 import type { GameInfo } from "./types"
-import { faMagnifyingGlass, faXmark } from '@fortawesome/free-solid-svg-icons'
+import { faMagnifyingGlass } from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 type propTypes = {
     playerId: string,
     displayedPlayerId: string,
-    games: {"pgn": string}[],
+    games: GameInfo[],
     setPlayerId: Function,
     fetchPlayersGames: Function,
     convertPGNToFENSequence: Function,
-    width: number
 }
 
 function GameSelector({
-    playerId, displayedPlayerId, games, setPlayerId, fetchPlayersGames, convertPGNToFENSequence, width
+    playerId, displayedPlayerId, games, setPlayerId, fetchPlayersGames, convertPGNToFENSequence
 } : propTypes) {
-    const [menuOpen, setMenuOpen] = useState(false)
 
-    const getGameSelector = () => {
-        return (
-            <>
-                <div className="w-[100%] rounded-2xl border border-grey-100 border-2 p-3 flex flex-row items-center bg-white text-black">
-                    <FontAwesomeIcon
-                        icon={faMagnifyingGlass}
-                        onClick={() => fetchPlayersGames(playerId)}
-                    />
-                    <input
-                        className="w-[100%] focus:outline-none ml-3"
-                        type="text"
-                        onChange={(input) => setPlayerId(input.target.value)}
-                        onKeyDown={(event) => {if (event.key == "Enter") fetchPlayersGames(playerId)}}
-                        placeholder='Enter a player to search...'
-                        value={playerId}
-                    ></input>
-                </div>
-                <div className="w-[100%] p-5 flex flex-col items-center overflow-y-auto overflow-x-hidden m-5">
-                    {games.map((game) => {
-                        const dateOfPlay = game.pgn.match(/Date \"(.*)\"/)
-                        const date = (dateOfPlay)? dateOfPlay[1] : undefined
-                        const colourRegex = new RegExp(`\\[(.*) \\"${displayedPlayerId}\\"`)
-                        const colourMatch = game.pgn.match(colourRegex)
-                        const colour = (colourMatch && colourMatch[1] == "Black")? "black" : "white"
-                        const opponentColour = (colour == "black")? "White" : "Black"
-                        const opponentRegex = new RegExp(`\\[${opponentColour} \\"(.*)\\"`)
-                        const opponentMatch = game.pgn.match(opponentRegex)
-                        const opponent = (opponentMatch)? opponentMatch[1] : undefined
-                        const data: GameInfo = {
-                            "opponent": opponent, "colour": colour, "date": date, "pgn": game.pgn
-                        }
-                        return <div 
-                                className="bg-white text-black rounded-3xl m-2 flex flex-row w-[100%] active:bg-blue-100 hover:bg-blue-100 hover:cursor-pointer"
-                                key={game.pgn} 
-                                onClick={() => {
-                                    setMenuOpen(false)
-                                    convertPGNToFENSequence(data)
-                                }}
-                            >
-                                <div className={`w-10 border border-grey-300 border-2 rounded-l-3xl`} style={{backgroundColor: colour}}></div>
-                                <div className="p-2 pl-4 w-[100%] h-[100%] text-sm border border-grey-300 border-2 border-l-0 rounded-r-3xl">
-                                    <div>{`Date of Play: ${(date)? date : "Unknown"}`}</div>
-                                    <div>{`Opponent: ${(opponent)? opponent : "Unknown"}`}</div>
-                                </div>
-                            </div>
-                    })}
-                </div>
-            </>
-        )    
+    // Returns an object containing the identified player name and the opponent's name.
+    const getPlayerAndOpponent = (game: GameInfo, playerId: string) => {
+        const whiteName = game.white.username;
+        const blackName = game.black.username;
+        const target = playerId.toLowerCase();
+
+        // Check if player is white or black
+        if (whiteName.toLowerCase() === target) {
+            return {
+                playerName: whiteName,
+                opponent: blackName
+            };
+        } else {
+            return {
+                playerName: blackName,
+                opponent: whiteName
+            };
+        }
     }
 
-    if (width > 900) {
-        return <div className="w-[40%] flex flex-col items-center p-5">
-            {getGameSelector()}
-        </div>
-    } else {
-        return <div className={`w-[100%] flex flex-col justify-center items-center fixed z-200 top-0 left-0 ${(menuOpen)? "bg-white h-full" : ""}`}>
-            <div className="w-[100%] ">
-                <FontAwesomeIcon
-                    icon={(menuOpen)? faXmark : faMagnifyingGlass}
-                    onClick={() => setMenuOpen((prev) => !prev)}
-                    className={`top-0 left-0 mt-5 ml-5 p-2 w-auto h-20 rounded-full bg-black text-white`}
+    const getGameOutcome = (game: any, playerId: string): string => {
+        const isWhite = game.white.username.toLowerCase() === playerId.toLowerCase();
+        const player = isWhite ? game.white : game.black;
+
+        // Case 1: Player won
+        if (player.result === "win") {
+            return "Win";
+        }
+
+        // Case 2: Draw scenarios
+        const drawResults = ["draw", "stalemate", "insufficient", "repetition", "50move"];
+        if (drawResults.includes(player.result)) {
+            return "Draw";
+        }
+
+        // Case 3: Player lost
+        // The result field for the loser usually indicates HOW they lost (e.g., "resigned")
+        return "Loss";
+    };
+
+    return (
+        // Sidebar Container: Matches the mock's dark theme
+        <div className="flex flex-col h-full bg-neutral-900 border-r border-neutral-700 p-4">
+            <h2 className="text-lg font-semibold text-neutral-100 mb-4">Game Database</h2>
+            
+            {/* Search Input: Styled as a dark-mode input field */}
+            <div className="bg-neutral-800 rounded-lg border border-neutral-700 p-2 flex items-center text-neutral-300 mb-4">
+                <FontAwesomeIcon icon={faMagnifyingGlass} className="mr-3 ml-1" />
+                <input
+                    className="bg-transparent w-full focus:outline-none text-sm placeholder-neutral-500"
+                    type="text"
+                    onChange={(input) => setPlayerId(input.target.value)}
+                    onKeyDown={(event) => {if (event.key == "Enter") fetchPlayersGames(playerId)}}
+                    placeholder='Search Player Games (e.g., Jcssss)'
+                    value={playerId}
                 />
             </div>
-            <div className={`w-[80%] h-[90%] flex flex-col items-center justify-start pt-10 text-white ${(menuOpen)? "" : "hidden"}`}>
-                {getGameSelector()}   
+
+            {/* Scrollable Game List */}
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                {games.map((game) => {
+                    // Logic for metadata extraction...
+                    const dateOfPlay = game.pgn.match(/Date \"(.*)\"/)
+                    const date = (dateOfPlay)? dateOfPlay[1] : "Unknown"
+                    const opponent = getPlayerAndOpponent(game, playerId).opponent
+                    const result = getGameOutcome(game, playerId)
+
+                    return (
+                        <div 
+                            className="bg-neutral-800 rounded-lg p-3 border border-neutral-700 hover:border-blue-500 hover:bg-neutral-700 transition-colors cursor-pointer group"
+                            key={game.pgn} 
+                            onClick={() => convertPGNToFENSequence(game)}
+                        >
+                            <div className="flex items-center justify-between">
+                                <div className="text-sm font-medium text-neutral-100">
+                                    {`${playerId} vs ${opponent}`}
+                                </div>
+                                <div className="text-xs text-neutral-400">{result}</div>
+                            </div>
+                            <div className="text-xs text-neutral-500 mt-1">{date}</div>
+                        </div>
+                    )
+                })}
             </div>
         </div>
-    }
+    )    
 }
 
 export default GameSelector
