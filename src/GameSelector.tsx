@@ -88,7 +88,7 @@ function GameSelector({
 
                         return (
                             <div 
-                                className="bg-neutral-800 rounded-lg p-3 border border-neutral-700 hover:border-blue-500 hover:bg-neutral-700 transition-colors cursor-pointer group"
+                                className="bg-neutral-800 rounded-lg p-3 border border-neutral-700 hover:border-blue-500 hover:bg-neutral-700 transition-colors cursor-pointer group mr-1"
                                 key={game.pgn} 
                                 onClick={() => convertPGNToFENSequence(game)}
                             >
@@ -105,7 +105,7 @@ function GameSelector({
                 </div>
             </div>
             <div className="pt-2" onClick={() => toggleSelectorOpen()}>
-                <FontAwesomeIcon icon={(selectorOpen)? faLongArrowAltLeft : faLongArrowAltRight}/>
+                <FontAwesomeIcon className="text-white-950 hover:text-gray-300" icon={(selectorOpen)? faLongArrowAltLeft : faLongArrowAltRight}/>
             </div>
         </div>
     )    

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, type ReactElement } from 'react'
 import { useDelayUpdate } from "./hooks/useDelayUpdate"
 import { Chess, type Square } from 'chess.js'
 import { Chessboard, type PieceDropHandlerArgs, type PieceHandlerArgs, type PieceDataType, type SquareHandlerArgs} from 'react-chessboard'
-import { faArrowCircleRight, faArrowCircleLeft, faEraser, faDeleteLeft, faChessKing, faMagnifyingGlass} from '@fortawesome/free-solid-svg-icons'
+import { faArrowCircleRight, faArrowCircleLeft, faEraser, faDeleteLeft} from '@fortawesome/free-solid-svg-icons'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { GameInfo } from "./types"
 import GameSelector from './GameSelector';
@@ -206,6 +206,31 @@ function App() {
     } else {
       return false
     }
+  }
+
+  function getMoveBetweenFens(fenBefore: string, fenAfter: string) {
+    // Initialize chess.js with the starting position
+    const chess = new Chess(fenBefore);
+    
+    // Normalize target FEN (removes move/half-move counters for pure state matching)
+    const normalizeFen = (f) => f.split(' ').slice(0, 4).join(' ');
+    const targetFenClean = normalizeFen(fenAfter);
+
+    // Loop through all legal moves from the starting position
+    for (const move of chess.moves({ verbose: true })) {
+      // Simulate the move
+      chess.move(move);
+      
+      // Check if the resulting position matches the target FEN
+      if (normalizeFen(chess.fen()) === targetFenClean) {
+        return move.san; // Returns the complete move object (san, from, to, piece, etc.)
+      }
+      
+      // Undo the move to check the next one
+      chess.undo();
+    }
+
+    return null; // Return null if no single legal move connects the two FENs
   }
 
   // Reset the board to the last saved position in the original game
@@ -419,12 +444,21 @@ function App() {
           </div>
 
           {/* Right Panel: Engine & Move History */}
-          <section className="w-[300px] flex flex-col gap-4">
+          {/* <section className="w-[300px] flex flex-col gap-4">
             <div className="bg-neutral-800 p-4 rounded-xl border border-neutral-700 flex-1">
                 <h2 className="font-semibold mb-2">Engine & Move History</h2>
-                {/* Engine output and move list logic here */}
+                <div>
+                  {currentMoveSet.map((move, index, arr) => {
+                    const prevMove = arr[index - 1] || null
+
+                    if (!prevMove) {
+                      return
+                    }
+                    return <div>{getMoveBetweenFens(prevMove, move)}</div>
+                  })}
+                </div>
             </div>
-          </section>
+          </section> */}
         </div>
       </main>
     </div>
