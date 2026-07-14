@@ -14,11 +14,19 @@ function App() {
 
   // Variables for displaying the current game
   const [games, setGames]= useState<GameInfo[]>([])
-  const [currentMoveSet, setCurrentMoveSet] = useState<string[]>([basePosition])
-  const [originalMoveSet, setOriginalMoveSet] = useState<string[]>([])
+
+  // Variables storing the current move set and history
+  const [curFENMoveSet, setCurFENMoveSet] = useState<string[]>([basePosition])
+  const [curSANMoveSet, setCurSANMoveSet] = useState<string[]>([])
   const [currentGame, setCurrentGame] = useState<GameInfo | undefined>()
   const [moveIndex, setMoveIndex] = useState(0)
+
+  // Variables storing the original move set, before custom moves
+  const [originalFENMoveSet, setOriginalFENMoveSet] = useState<string[]>([])
+  const [originalSANMoveSet, setOriginalSANMoveSet] = useState<string[]>([])
   const [originalMoveIndex, setOriginalMoveIndex] = useState(-1)
+
+  // Variables for cell highlight on board
   const [possibleMoves, setPossibleMoves] = useState<Square[]>([])
   const [lastSquareClicked, setLastSquareClicked] = useState<string | null>("")
 
@@ -35,7 +43,7 @@ function App() {
   const [evaluation, setEvaluation] = useState("")
   const [barHeight, setBarHeight] = useDelayUpdate(0.5, 200)
 
-  // Variable to store width of the screen
+  // Variable to store width of the screen, for resizing
   const [width, setWidth] = useState(0);
 
   // Initialize the stockfish engine and handle responses
@@ -97,13 +105,13 @@ function App() {
 
   // When we update the move being considered, ask stockfish to find the best move
   useEffect(() => {
-    requestBestMove(currentMoveSet[moveIndex])
+    requestBestMove(curFENMoveSet[moveIndex])
   }, [moveIndex])
 
   // Ask Stockfish for the best move
   const requestBestMove = (fen: string) => {
     const stockfish = stockfishRef.current
-    if (!stockfish || currentMoveSet.length == 0) return;
+    if (!stockfish || curFENMoveSet.length == 0) return;
 
     stockfish.postMessage("ucinewgame");
     stockfish.postMessage(`position fen ${fen}`);
@@ -120,6 +128,7 @@ function App() {
     try {
       const response = await fetch(url)
       const responseJson = await response.json()
+      console.log(responseJson.games)
       setGames(responseJson.games.reverse())
     } catch(err) {
       console.log(err)
@@ -144,7 +153,8 @@ function App() {
     }
 
     // Update state objects with the move list
-    setCurrentMoveSet(fenMoveList)
+    setCurFENMoveSet(fenMoveList)
+    setCurSANMoveSet(moves)
     
     // Split the FEN string by spaces to isolate the fields
     const fenString = game.fen
@@ -162,7 +172,8 @@ function App() {
     setMoveIndex(fenMoveList.length - 1)
 
     // Clear any saved games
-    setOriginalMoveSet([])
+    setOriginalFENMoveSet([])
+    setOriginalSANMoveSet([])
     setOriginalMoveIndex(-1)
   }
 
@@ -172,25 +183,31 @@ function App() {
 
     // Load the current position andd get the list of possible moves
     let chess = new Chess()
-    chess.load(currentMoveSet[moveIndex])
+    chess.load(curFENMoveSet[moveIndex])
     let possibleMoves = chess.moves({ square: sourceSquare as Square, verbose: true })
 
     // If the move is valid
     if (possibleMoves.some((move) => (move.to == targetSquare as Square))) {
       setArrows([])
 
-      // Save a history of the moves up to the current move
-      let movesMade = [...currentMoveSet]
-      movesMade.splice(moveIndex + 1, movesMade.length - moveIndex)
+      // Save a history of the moves up to the current move, we overwrite moves after
+      let movesMadeFEN = [...curFENMoveSet]
+      console.log(movesMadeFEN)
+      movesMadeFEN.splice(moveIndex + 1, movesMadeFEN.length - moveIndex)
+      let movesMadeSAN = [...curSANMoveSet]
+      console.log(movesMadeSAN)
+      movesMadeSAN.splice(moveIndex, movesMadeSAN.length - moveIndex) // FEN is one item longer because of starting position
 
       // Add the new move to the history
-      chess.move({from: sourceSquare as Square, to: targetSquare as Square})
-      movesMade.push(chess.fen())
+      let moveDetails = chess.move({from: sourceSquare as Square, to: targetSquare as Square})
+      movesMadeFEN.push(chess.fen())
+      movesMadeSAN.push(moveDetails.san)
 
       // If the original game is not saved,
       // Save it and the move we were on
       if (originalMoveIndex == -1) {
-        setOriginalMoveSet([...currentMoveSet])
+        setOriginalFENMoveSet([...curFENMoveSet])
+        setOriginalSANMoveSet([...curSANMoveSet])
         setOriginalMoveIndex(moveIndex)
 
       // If the original game is saved, but we make a new move
@@ -200,61 +217,42 @@ function App() {
       }
 
       // Update the game to include the new move
-      setCurrentMoveSet(movesMade)
-      setMoveIndex(movesMade.length - 1)
+      setCurFENMoveSet(movesMadeFEN)
+      setCurSANMoveSet(movesMadeSAN)
+      setMoveIndex(movesMadeFEN.length - 1)
       return true
     } else {
       return false
     }
   }
 
-  function getMoveBetweenFens(fenBefore: string, fenAfter: string) {
-    // Initialize chess.js with the starting position
-    const chess = new Chess(fenBefore);
-    
-    // Normalize target FEN (removes move/half-move counters for pure state matching)
-    const normalizeFen = (f) => f.split(' ').slice(0, 4).join(' ');
-    const targetFenClean = normalizeFen(fenAfter);
-
-    // Loop through all legal moves from the starting position
-    for (const move of chess.moves({ verbose: true })) {
-      // Simulate the move
-      chess.move(move);
-      
-      // Check if the resulting position matches the target FEN
-      if (normalizeFen(chess.fen()) === targetFenClean) {
-        return move.san; // Returns the complete move object (san, from, to, piece, etc.)
-      }
-      
-      // Undo the move to check the next one
-      chess.undo();
-    }
-
-    return null; // Return null if no single legal move connects the two FENs
-  }
-
   // Reset the board to the last saved position in the original game
-  const resetToLastPosition = (moveSet: string[], moveIndex: number): void => {
+  const resetToLastPosition = (): void => {
     setArrows([])
-    setCurrentMoveSet([...moveSet])
+    setCurFENMoveSet([...originalFENMoveSet])
+    setCurSANMoveSet([...originalSANMoveSet])
     setMoveIndex(moveIndex)
-    setOriginalMoveSet([])
+    setOriginalFENMoveSet([])
+    setOriginalSANMoveSet([])
     setOriginalMoveIndex(-1)
   }
 
   // Reset the board to starting setup
   const resetToStartPosition = (): void => {
     setArrows([])
-    setCurrentMoveSet([basePosition])
+    setCurFENMoveSet([basePosition])
+    setCurSANMoveSet([])
     setMoveIndex(0)
-    setOriginalMoveSet([])
+    setOriginalFENMoveSet([])
+    setOriginalSANMoveSet([])
     setOriginalMoveIndex(-1)
+    setCurrentGame(undefined)
   }
 
   // Given a square, determine the list of possible moves in the current game
   const determinePossibleMoves = (square: string | null): Square[] => {
     let chess = new Chess()
-    chess.load(currentMoveSet[moveIndex])
+    chess.load(curFENMoveSet[moveIndex])
 
     let possibleMoves = chess.moves({ square: square as Square, verbose: true })
     return possibleMoves.map((move) => move.to)
@@ -262,13 +260,14 @@ function App() {
 
   // Update the move that we're looking at
   const updateMoveIndex = (update: number): void => {
+    console.log(update)
     setArrows([])
     setMoveIndex(curr => {
       curr = curr + update
       if (curr < 0) {
         curr = 0
-      } else if (curr > currentMoveSet.length - 1) {
-        curr = currentMoveSet.length - 1
+      } else if (curr > curFENMoveSet.length - 1) {
+        curr = curFENMoveSet.length - 1
       }
 
       return curr
@@ -278,15 +277,42 @@ function App() {
   // Create the heading above each game
   const createGameHeading = (): ReactElement => {
     if (currentGame) {
-      return <div className={`flex flex-col items-center m-2 ${(width < 900)? "w-[100%] mt-20 m-2" : "w-125 m-2"}`}>
-        <div className="text-2xl">{`Opponent: ${currentGame.opponent}`}</div>
-        <div className="mb-5">{`Date: ${currentGame.date}`}</div>
-      </div>
+      return (
+        <>
+          {/* Row 1: Opponent Info */}
+          <div className="flex flex-col px-3 py-1 justify-center">
+            <span className="text-xs text-neutral-400 uppercase tracking-wider font-semibold">Opponent</span>
+            <span className="text-sm font-semibold text-neutral-200 truncate">{currentGame.opponent}</span>
+          </div>
+          
+          {/* Row 2: Date Info */}
+          <div className="flex flex-col px-3 py-1 justify-center">
+            <span className="text-xs text-neutral-400 uppercase tracking-wider font-semibold">Date</span>
+            <span className="text-sm text-neutral-300 font-medium">{currentGame.date}</span>
+          </div>
+
+          {/* Row 1: Opponent Info */}
+          <div className="flex flex-col px-3 py-1 justify-center">
+            <span className="text-xs text-neutral-400 uppercase tracking-wider font-semibold">Result</span>
+            <span className="text-sm font-semibold text-neutral-200 truncate">{currentGame.result}</span>
+          </div>
+          
+          {/* Row 2: Date Info */}
+          <div className="flex flex-col px-3 py-1 justify-center">
+            <span className="text-xs text-neutral-400 uppercase tracking-wider font-semibold">Colour</span>
+            <span className="text-sm text-neutral-300 font-medium">{currentGame.colour}</span>
+          </div>
+        </>
+      );
     }
-    return <div className={`flex flex-col items-center m-2 ${(width < 900)? "w-[100%]" : "w-125"}`}>
-      <div className="mb-5">Select a game to begin analysis</div>
-    </div>
-  }
+
+    // Fallback state if no game is selected
+    return (
+      <div className="col-span-2 text-center text-xs text-neutral-400 italic py-6 px-4">
+        Select a game to begin analysis
+      </div>
+    );
+  };
 
   // Determine the height of the evaluation bar
   const determineBarHeight = (evaluation: string): void => {
@@ -404,7 +430,7 @@ function App() {
             <div className="flex flex-col h-[100%] aspect-square">
               <Chessboard options={{
                 arrows: arrows,
-                position: currentMoveSet[moveIndex],
+                position: curFENMoveSet[moveIndex],
                 squareStyles: getSquareStyles(possibleMoves),
                 boardStyle: {
                   width: "auto",
@@ -422,43 +448,74 @@ function App() {
             </div>
             
             <div className={`m-5 w-10 text-5xl space-y-3 flex flex-col items-center justify-end`}>
-              <button className={`${(moveIndex == 0 || currentMoveSet.length == 0)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
+              <button className={`${(moveIndex == 0 || curFENMoveSet.length == 0)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
                 <FontAwesomeIcon icon={faArrowCircleLeft} onClick={() => updateMoveIndex(-1)}/>
               </button>
-              <button className={`${(currentMoveSet.length == 1)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
+              <button className={`${(curFENMoveSet.length == 1)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
                 <FontAwesomeIcon 
                   icon={faEraser}
                   onClick={() => resetToStartPosition()}
                 />
               </button>
-              <button className={`${(originalMoveSet.length == 0)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
+              <button className={`${(originalFENMoveSet.length == 0)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
                 <FontAwesomeIcon 
                   icon={faDeleteLeft}
-                  onClick={() => resetToLastPosition(originalMoveSet, originalMoveIndex)}
+                  onClick={() => resetToLastPosition()}
                 />
               </button>
-              <button className={`${(moveIndex == currentMoveSet.length - 1 || currentMoveSet.length == 0)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
+              <button className={`${(moveIndex == curFENMoveSet.length - 1 || curFENMoveSet.length == 0)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
                 <FontAwesomeIcon icon={faArrowCircleRight} onClick={() => updateMoveIndex(1)}/>
               </button>
             </div>
           </div>
 
-          {/* Right Panel: Engine & Move History */}
-          {/* <section className="w-[300px] flex flex-col gap-4">
-            <div className="bg-neutral-800 p-4 rounded-xl border border-neutral-700 flex-1">
-                <h2 className="font-semibold mb-2">Engine & Move History</h2>
-                <div>
-                  {currentMoveSet.map((move, index, arr) => {
-                    const prevMove = arr[index - 1] || null
+          {/* Right Side Container - Set a total height so percentages work */}
+          <aside className="w-[300px] h-[800px] flex flex-col gap-4">
 
-                    if (!prevMove) {
-                      return
-                    }
-                    return <div>{getMoveBetweenFens(prevMove, move)}</div>
+            {/* Top Section: Game Info (20% height) */}
+            <section className="flex flex-col flex-[2] min-h-0">
+              <div className="bg-neutral-800 p-4 rounded-xl border border-neutral-700 flex flex-col h-full">
+                <h2 className="text-lg font-semibold text-neutral-100 mb-2">
+                  Game Info
+                </h2>
+                
+                {/* Scrollable container */}
+                <div className="grid grid-cols-2 gap-x-2 gap-y-1 pr-1 text-sm font-mono">
+                  {createGameHeading()}
+                </div>
+              </div>
+            </section>
+
+            {/* Bottom Section: Engine & Move History (80% height) */}
+            <section className="flex flex-col flex-[8] min-h-0">
+              <div className="bg-neutral-800 p-4 rounded-xl border border-neutral-700 flex flex-col h-full">
+                <h2 className="text-lg font-semibold text-neutral-100 mb-4">
+                  Engine & Move History
+                </h2>
+                
+                {/* Scrollable container for long games */}
+                <div className="grid grid-cols-2 gap-x-2 gap-y-1 overflow-y-auto pr-1 text-sm font-mono flex-1">
+                  {curSANMoveSet.map((sanMove, index) => {
+                    const isActive = index === moveIndex;
+                    const itemStyles = `
+                      px-3 py-1.5 rounded-md font-mono text-sm transition-colors cursor-pointer even:mr-2
+                      ${isActive 
+                        ? 'bg-emerald-600 text-white font-semibold' 
+                        : 'hover:bg-neutral-700/30 odd:bg-neutral-400/50 odd:text-neutral-200 even:bg-neutral-700/50 even:text-neutral-400'
+                      }
+                    `;
+
+                    return (
+                      <div key={index} className={itemStyles} onClick={() => updateMoveIndex(index - moveIndex)}>
+                        {sanMove}
+                      </div>
+                    );
                   })}
                 </div>
-            </div>
-          </section> */}
+              </div>
+            </section>
+
+          </aside>
         </div>
       </main>
     </div>

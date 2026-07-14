@@ -38,6 +38,16 @@ function GameSelector({
         }
     }
 
+    const getGameDate = (game: any) => {
+        if (!game || !game.end_time) return "N/A";
+        
+        // Convert Unix timestamp (seconds) to milliseconds
+        const date = new Date(game.end_time * 1000);
+        
+        // Extracts the 'YYYY-MM-DD' portion of the ISO string
+        return date.toISOString().split('T')[0];
+    }
+
     const getGameOutcome = (game: any, playerId: string): string => {
         const isWhite = game.white.username.toLowerCase() === playerId.toLowerCase();
         const player = isWhite ? game.white : game.black;
@@ -81,10 +91,13 @@ function GameSelector({
                 <div className="flex-1 overflow-y-auto space-y-2 pr-1">
                     {games.map((game) => {
                         // Logic for metadata extraction...
-                        const dateOfPlay = game.pgn.match(/Date \"(.*)\"/)
-                        const date = (dateOfPlay)? dateOfPlay[1] : "Unknown"
+                        const date = getGameDate(game)
                         const opponent = getPlayerAndOpponent(game, playerId).opponent
                         const result = getGameOutcome(game, playerId)
+
+                        game.date = date
+                        game.opponent = opponent
+                        game.result = result
 
                         return (
                             <div 

@@ -6,6 +6,7 @@ export type GameInfo = {
   "white": SideInfo,
   "black": SideInfo,
   "fen": string
+  "result": string
 }
 
 export type SideInfo = {
