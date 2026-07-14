@@ -6,7 +6,7 @@ import { useState } from "react";
  * @param initBool the initial value to set
  * @returns The delayed value
  */
-export function useToggle<boolean>(initBool: boolean):[boolean, Function] {
+export function useToggle(initBool: boolean):[boolean, Function] {
   const [value, setValue] = useState(initBool);
 
   const toggleValue = () => {
