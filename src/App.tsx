@@ -8,6 +8,8 @@ import type { GameInfo } from "./types"
 import GameSelector from './GameSelector';
 
 function App() {
+  const moveHistoryContainerRef = useRef(null);
+
   const basePosition = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
   const [playerId, setPlayerId] = useState("Jcssss")
   const [displayedPlayerId, setDisplayedPlayerId] = useState("Jcssss")
@@ -87,6 +89,16 @@ function App() {
     window.addEventListener("resize", detectWidth);
     detectWidth();
   }, []);
+
+  useEffect(() => {
+    if (moveHistoryContainerRef.current) {
+      // Use behavior: 'smooth' for animated scrolling, or 'instant' for a sharp jump
+      moveHistoryContainerRef.current.scrollTo({
+        top: moveHistoryContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  }, [curSANMoveSet]); // Triggers whenever a new move is added
 
   const detectWidth = () => {
     setWidth(window.innerWidth);
@@ -496,7 +508,7 @@ function App() {
                 </h2>
                 
                 {/* Scrollable container for long games */}
-                <div className="grid grid-cols-2 gap-x-2 gap-y-1 overflow-y-auto pr-1 text-sm font-mono flex-1 content-start">
+                <div ref={moveHistoryContainerRef} className="grid grid-cols-2 gap-x-2 gap-y-1 overflow-y-auto pr-1 text-sm font-mono flex-1 content-start">
                   {curSANMoveSet.map((sanMove, index) => {
                     const isActive = index === moveIndex;
                     const itemStyles = `
