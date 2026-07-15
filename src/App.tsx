@@ -16,10 +16,10 @@ function App() {
   const [games, setGames]= useState<GameInfo[]>([])
 
   // Variables storing the current move set and history
-  const [curFENMoveSet, setCurFENMoveSet] = useState<string[]>([basePosition])
+  const [curFENMoveSet, setCurFENMoveSet] = useState<string[]>([])
   const [curSANMoveSet, setCurSANMoveSet] = useState<string[]>([])
   const [currentGame, setCurrentGame] = useState<GameInfo | undefined>()
-  const [moveIndex, setMoveIndex] = useState(0)
+  const [moveIndex, setMoveIndex] = useState(-1)
 
   // Variables storing the original move set, before custom moves
   const [originalFENMoveSet, setOriginalFENMoveSet] = useState<string[]>([])
@@ -105,8 +105,12 @@ function App() {
 
   // When we update the move being considered, ask stockfish to find the best move
   useEffect(() => {
-    requestBestMove(curFENMoveSet[moveIndex])
+    requestBestMove(getCurFENPosition())
   }, [moveIndex])
+
+  const getCurFENPosition = (): string => {
+    return (moveIndex < 0)? basePosition : curFENMoveSet[moveIndex]
+  }
 
   // Ask Stockfish for the best move
   const requestBestMove = (fen: string) => {
@@ -183,7 +187,7 @@ function App() {
 
     // Load the current position andd get the list of possible moves
     let chess = new Chess()
-    chess.load(curFENMoveSet[moveIndex])
+    chess.load(getCurFENPosition())
     let possibleMoves = chess.moves({ square: sourceSquare as Square, verbose: true })
 
     // If the move is valid
@@ -192,11 +196,9 @@ function App() {
 
       // Save a history of the moves up to the current move, we overwrite moves after
       let movesMadeFEN = [...curFENMoveSet]
-      console.log(movesMadeFEN)
-      movesMadeFEN.splice(moveIndex + 1, movesMadeFEN.length - moveIndex)
+      movesMadeFEN.splice(moveIndex + 1)
       let movesMadeSAN = [...curSANMoveSet]
-      console.log(movesMadeSAN)
-      movesMadeSAN.splice(moveIndex, movesMadeSAN.length - moveIndex) // FEN is one item longer because of starting position
+      movesMadeSAN.splice(moveIndex + 1) // FEN is one item longer because of starting position
 
       // Add the new move to the history
       let moveDetails = chess.move({from: sourceSquare as Square, to: targetSquare as Square})
@@ -219,7 +221,7 @@ function App() {
       // Update the game to include the new move
       setCurFENMoveSet(movesMadeFEN)
       setCurSANMoveSet(movesMadeSAN)
-      setMoveIndex(movesMadeFEN.length - 1)
+      setMoveIndex(ind => ind + 1)
       return true
     } else {
       return false
@@ -231,7 +233,7 @@ function App() {
     setArrows([])
     setCurFENMoveSet([...originalFENMoveSet])
     setCurSANMoveSet([...originalSANMoveSet])
-    setMoveIndex(moveIndex)
+    setMoveIndex(originalMoveIndex)
     setOriginalFENMoveSet([])
     setOriginalSANMoveSet([])
     setOriginalMoveIndex(-1)
@@ -240,9 +242,9 @@ function App() {
   // Reset the board to starting setup
   const resetToStartPosition = (): void => {
     setArrows([])
-    setCurFENMoveSet([basePosition])
+    setCurFENMoveSet([])
     setCurSANMoveSet([])
-    setMoveIndex(0)
+    setMoveIndex(-1)
     setOriginalFENMoveSet([])
     setOriginalSANMoveSet([])
     setOriginalMoveIndex(-1)
@@ -252,7 +254,7 @@ function App() {
   // Given a square, determine the list of possible moves in the current game
   const determinePossibleMoves = (square: string | null): Square[] => {
     let chess = new Chess()
-    chess.load(curFENMoveSet[moveIndex])
+    chess.load(getCurFENPosition())
 
     let possibleMoves = chess.moves({ square: square as Square, verbose: true })
     return possibleMoves.map((move) => move.to)
@@ -430,7 +432,7 @@ function App() {
             <div className="flex flex-col h-[100%] aspect-square">
               <Chessboard options={{
                 arrows: arrows,
-                position: curFENMoveSet[moveIndex],
+                position: getCurFENPosition(),
                 squareStyles: getSquareStyles(possibleMoves),
                 boardStyle: {
                   width: "auto",
@@ -448,10 +450,10 @@ function App() {
             </div>
             
             <div className={`m-5 w-10 text-5xl space-y-3 flex flex-col items-center justify-end`}>
-              <button className={`${(moveIndex == 0 || curFENMoveSet.length == 0)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
+              <button className={`${(moveIndex == -1)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
                 <FontAwesomeIcon icon={faArrowCircleLeft} onClick={() => updateMoveIndex(-1)}/>
               </button>
-              <button className={`${(curFENMoveSet.length == 1)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
+              <button className={`${(curFENMoveSet.length == 0)? 'opacity-50': 'opacity-100 hover:opacity-75 active:opacity-75'}`}>
                 <FontAwesomeIcon 
                   icon={faEraser}
                   onClick={() => resetToStartPosition()}
@@ -494,11 +496,11 @@ function App() {
                 </h2>
                 
                 {/* Scrollable container for long games */}
-                <div className="grid grid-cols-2 gap-x-2 gap-y-1 overflow-y-auto pr-1 text-sm font-mono flex-1">
+                <div className="grid grid-cols-2 gap-x-2 gap-y-1 overflow-y-auto pr-1 text-sm font-mono flex-1 content-start">
                   {curSANMoveSet.map((sanMove, index) => {
                     const isActive = index === moveIndex;
                     const itemStyles = `
-                      px-3 py-1.5 rounded-md font-mono text-sm transition-colors cursor-pointer even:mr-2
+                      px-3 py-1.5 rounded-md font-mono text-sm transition-colors cursor-pointer even:mr-2 h-8
                       ${isActive 
                         ? 'bg-emerald-600 text-white font-semibold' 
                         : 'hover:bg-neutral-700/30 odd:bg-neutral-400/50 odd:text-neutral-200 even:bg-neutral-700/50 even:text-neutral-400'
