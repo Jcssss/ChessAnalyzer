@@ -8,7 +8,7 @@ import type { GameInfo } from "./types"
 import GameSelector from './GameSelector';
 
 function App() {
-  const moveHistoryContainerRef = useRef(null);
+  const moveHistoryContainerRef = useRef<HTMLDivElement>(null);
 
   const basePosition = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
   const [playerId, setPlayerId] = useState("Jcssss")
