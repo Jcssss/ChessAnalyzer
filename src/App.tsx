@@ -55,7 +55,6 @@ function App() {
 
     // Handle stockfish responses
     stockfishWorker.onmessage = (e) => {
-      console.log(`Stockfish says: ${e.data}`)
 
       // Best move suggestion
       if (e.data.includes("bestmove")) {
@@ -450,10 +449,10 @@ function App() {
                   width: "auto",
                   height: "100%",
                 },
+                allowDragging: true,
                 boardOrientation: (currentGame)? currentGame.colour : 'white',
                 onSquareClick: ({square, piece}: SquareHandlerArgs) => attemptMove(square, piece, lastSquareClicked),
                 onPieceDrop: makeMove,
-                onPieceClick: ({square, piece}: PieceHandlerArgs) => attemptMove(square, piece, lastSquareClicked),
                 onPieceDrag: ({square}: PieceHandlerArgs) => setPossibleMoves(determinePossibleMoves(square)),
                 lightSquareStyle: {backgroundColor: 'rgba(255, 255, 255, 1)'},
                 darkSquareStyle: {backgroundColor: 'rgba(206, 168, 85, 1)'},
@@ -484,10 +483,10 @@ function App() {
           </div>
 
           {/* Right Side Container - Set a total height so percentages work */}
-          <aside className="w-[300px] h-[800px] flex flex-col gap-4">
+          <aside className="w-[300px] h-[100%] flex flex-col gap-4">
 
             {/* Top Section: Game Info (20% height) */}
-            <section className="flex flex-col flex-[2] min-h-0">
+            <section className="flex flex-col h-[150px] min-h-0">
               <div className="bg-neutral-800 p-4 rounded-xl border border-neutral-700 flex flex-col h-full">
                 <h2 className="text-lg font-semibold text-neutral-100 mb-2">
                   Game Info
