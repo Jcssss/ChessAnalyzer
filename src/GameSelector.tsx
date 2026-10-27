@@ -10,10 +10,11 @@ type propTypes = {
     setPlayerId: Function,
     fetchPlayersGames: Function,
     convertPGNToFENSequence: Function,
+    isWideScreen: boolean
 }
 
 function GameSelector({
-    playerId, games, setPlayerId, fetchPlayersGames, convertPGNToFENSequence
+    playerId, games, setPlayerId, fetchPlayersGames, convertPGNToFENSequence, isWideScreen
 } : propTypes) {
 
     const [selectorOpen, toggleSelectorOpen] = useToggle(true)
@@ -70,8 +71,8 @@ function GameSelector({
 
     return (
         // Sidebar Container: Matches the mock's dark theme
-        <div className="flex flex-row h-full bg-neutral-900 border-r border-neutral-700 p-4">
-            <div className={`flex flex-col h-full bg-neutral-900 p-4 ${(selectorOpen)? '' : 'hidden'}`}>
+        <div className={`flex flex-row h-full bg-neutral-900 border-r border-neutral-700 p-4 ${isWideScreen ? '' : 'w-full'}`}>
+            <div className={`flex flex-col h-full bg-neutral-900 p-4 ${(selectorOpen)? '' : 'hidden'} ${isWideScreen ? '' : 'w-full'}`}>
                 <h2 className="text-lg font-semibold text-neutral-100 mb-4">Game Database</h2>
             
                 {/* Search Input: Styled as a dark-mode input field */}
@@ -117,7 +118,7 @@ function GameSelector({
                     })}
                 </div>
             </div>
-            <div className="pt-2" onClick={() => toggleSelectorOpen()}>
+            <div className={`pt-2 ${isWideScreen? '' : 'hidden'}`} onClick={() => toggleSelectorOpen()}>
                 <FontAwesomeIcon className="text-white-950 hover:text-gray-300" icon={(selectorOpen)? faLongArrowAltLeft : faLongArrowAltRight}/>
             </div>
         </div>
